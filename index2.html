@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced People - Interactive Datasheet Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .main-content {
+            flex-grow: 1;
+        }
+        footer {
+            background-color: #e5e7eb;
+        }
+        /* Style for selected button */
+        .instrument-button.selected {
+            background-color: #1d4ed8;
+            color: white;
+            font-weight: 600;
+        }
+        /* Form input styling */
+        label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-weight: 500;
+            color: #374151;
+        }
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem; /* rounded-md */
+            margin-bottom: 0.75rem;
+            box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+        /* Datasheet Output Styling */
+        #datasheetOutput {
+            border: 1px solid #9ca3af; /* Medium gray border */
+            padding: 1rem;
+            margin-top: 1.5rem;
+            background-color: white;
+        }
+        #datasheetOutput table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            font-size: 0.875rem; /* text-sm */
+        }
+        #datasheetOutput th, #datasheetOutput td {
+            border: 1px solid #d1d5db; /* Light gray border */
+            padding: 0.3rem 0.5rem;
+            text-align: left;
+            vertical-align: top;
+        }
+        #datasheetOutput th {
+            background-color: #f9fafb;
+            font-weight: 600;
+        }
+        #datasheetOutput .title-block table {
+            margin-top: 0;
+        }
+        #datasheetOutput .title-block td {
+            height: 30px; /* Fixed height for title block cells */
+        }
+        #datasheetOutput .logo-cell {
+            text-align: center;
+            vertical-align: middle;
+        }
+        #datasheetOutput .param-name {
+           font-weight: 500;
+           width: 40%;
+        }
+        #datasheetOutput .param-value {
+           font-family: monospace; /* Use monospace for entered values */
+        }
+        /* Hide output initially */
+        #datasheetOutputContainer {
+            display: none;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="main-content max-w-5xl mx-auto bg-white p-6 rounded-lg shadow-lg mb-8">
+        <div class="flex flex-col sm:flex-row items-center justify-between mb-6 border-b pb-4 border-gray-200">
+            <h1 class="text-xl md:text-2xl font-bold text-center sm:text-left text-gray-800 mb-2 sm:mb-0">
+                Advanced People <br class="sm:hidden"> Interactive Datasheet Generator
+            </h1>
+            <img id="outputLogo" src="https://placehold.co/150x50/003366/FFFFFF?text=Advanced+People"
+                 alt="Advanced People Logo"
+                 class="h-10 md:h-12 object-contain rounded"
+                 onerror="this.onerror=null; this.src='https://placehold.co/150x50/CCCCCC/000000?text=Logo+Error';">
+        </div>
+
+        <div class="mb-6">
+            <h2 class="text-lg font-semibold text-gray-700 mb-3">1. Select Instrument Type:</h2>
+            <div id="instrumentSelector" class="flex flex-wrap gap-2">
+                <button data-instrument="pressure" class="instrument-button bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded transition duration-150 ease-in-out">Pressure Tx</button>
+                <button data-instrument="controlvalve" class="instrument-button bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded transition duration-150 ease-in-out">Control Valve</button>
+                <button data-instrument="level" class="instrument-button bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded transition duration-150 ease-in-out">Level Tx</button>
+                <button data-instrument="flow" class="instrument-button bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded transition duration-150 ease-in-out">Flow Tx</button>
+                <button data-instrument="temperature" class="instrument-button bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded transition duration-150 ease-in-out">Temperature Tx</button>
+            </div>
+        </div>
+
+        <div id="formContainer" class="mt-6">
+             <h2 class="text-lg font-semibold text-gray-700 mb-3">2. Enter Datasheet Information:</h2>
+             <div id="dataInputForm" class="p-4 border border-gray-200 rounded-lg bg-gray-50 min-h-[200px]">
+                 <p class="text-gray-500">Select an instrument type above to load the form.</p>
+             </div>
+        </div>
+
+        <div id="generateButtonContainer" class="mt-6 text-center" style="display: none;">
+             <button id="generateButton" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded transition duration-150 ease-in-out">
+                 Generate Datasheet Preview
+             </button>
+         </div>
+
+        <div id="datasheetOutputContainer" class="mt-8">
+             <h2 class="text-lg font-semibold text-gray-700 mb-3">3. Generated Datasheet Preview:</h2>
+             <div id="datasheetOutput">
+                 </div>
+        </div>
+
+    </div> <footer class="w-full mt-auto p-4 text-center text-sm text-gray-600">
+        &copy; <span id="currentYear"></span> Advanced People. All rights reserved. Educational Tool.
+    </footer>
+
+    <script>
+        // --- DOM Elements ---
+        const instrumentSelector = document.getElementById('instrumentSelector');
+        const formContainer = document.getElementById('formContainer');
+        const dataInputForm = document.getElementById('dataInputForm');
+        const generateButtonContainer = document.getElementById('generateButtonContainer');
+        const generateButton = document.getElementById('generateButton');
+        const datasheetOutputContainer = document.getElementById('datasheetOutputContainer');
+        const datasheetOutput = document.getElementById('datasheetOutput');
+        const currentYearSpan = document.getElementById('currentYear');
+        const outputLogo = document.getElementById('outputLogo'); // Logo in header
+
+        // --- Data Structures for Form Fields ---
+        // Defines the fields for each instrument type form
+        const instrumentFields = {
+            general: [
+                { id: 'tagNo', label: 'Tag No.', type: 'text', placeholder: 'e.g., PT-101' },
+                { id: 'serviceDesc', label: 'Service Description', type: 'text', placeholder: 'e.g., Crude Oil Pump Discharge Pressure' },
+                { id: 'pidNo', label: 'P&ID Drawing No.', type: 'text', placeholder: 'e.g., AP-PID-00-1001' },
+                { id: 'lineVesselNo', label: 'Line No. / Vessel No.', type: 'text', placeholder: 'e.g., 6"-CO-1023 / V-101' }
+            ],
+            pressure: [
+                { id: 'measType', label: 'Measurement Type', type: 'select', options: ['Gauge', 'Absolute', 'Differential'] },
+                { id: 'calRange', label: 'Calibrated Range', type: 'text', placeholder: 'e.g., 0 - 10 barg' },
+                { id: 'outputSignal', label: 'Output Signal', type: 'select', options: ['4-20mA HART', 'Foundation Fieldbus', 'Profibus PA', 'Wireless HART'] },
+                { id: 'procConn', label: 'Process Connection', type: 'text', placeholder: 'e.g., 1/2" NPTM SS316' },
+                { id: 'wettedParts', label: 'Wetted Parts Material', type: 'text', placeholder: 'e.g., SS316L' },
+                { id: 'accuracy', label: 'Accuracy (% Span)', type: 'text', placeholder: 'e.g., +/- 0.075' },
+                { id: 'powerSupply', label: 'Power Supply', type: 'text', placeholder: 'e.g., 24 VDC Loop Powered' },
+                { id: 'hazCert', label: 'Hazardous Area Cert.', type: 'text', placeholder: 'e.g., ATEX Ex ia' },
+                { id: 'display', label: 'Integral Display', type: 'select', options: ['Yes', 'No'] },
+                { id: 'accessories', label: 'Accessories', type: 'text', placeholder: 'e.g., 3-valve Manifold' }
+            ],
+            controlvalve: [
+                 { id: 'valveType', label: 'Valve Type', type: 'select', options: ['Globe', 'Ball (Segmented)', 'Ball (Full)', 'Butterfly', 'Plug'] },
+                 { id: 'failAction', label: 'Failure Action', type: 'select', options: ['Fail Open (FO)', 'Fail Close (FC)', 'Fail Last (FL)'] },
+                 { id: 'bodyMat', label: 'Body Material', type: 'text', placeholder: 'e.g., A216 WCB (CS)' },
+                 { id: 'trimMat', label: 'Trim Material', type: 'text', placeholder: 'e.g., SS316' },
+                 { id: 'endConn', label: 'End Connections', type: 'text', placeholder: 'e.g., 2" 300# RF' },
+                 { id: 'flowChar', label: 'Flow Characteristic', type: 'select', options: ['Linear', 'Equal Percentage (%EQ)', 'Quick Opening'] },
+                 { id: 'cv', label: 'Calculated Cv', type: 'text', placeholder: 'e.g., 45.5' },
+                 { id: 'actuatorType', label: 'Actuator Type', type: 'select', options: ['Pneumatic Diaphragm', 'Pneumatic Piston', 'Electric', 'Hydraulic'] },
+                 { id: 'actuatorAction', label: 'Actuator Action', type: 'select', options: ['Direct (Air-to-Close)', 'Reverse (Air-to-Open)'] },
+                 { id: 'positionerReq', label: 'Positioner Required?', type: 'select', options: ['Yes', 'No'] },
+                 { id: 'positionerType', label: 'Positioner Type', type: 'select', options: ['Digital HART', 'Pneumatic', 'Electro-Pneumatic (I/P)', 'FF', 'Profibus'] },
+                 { id: 'posInputOutput', label: 'Positioner Input/Output', type: 'text', placeholder: 'e.g., 4-20mA / 3-15 psi' },
+                 { id: 'valveAcc', label: 'Accessories', type: 'text', placeholder: 'e.g., SOV, Limit Switches, Airset' },
+                 { id: 'maxShutoff', label: 'Max Shutoff Pressure', type: 'text', placeholder: 'e.g., 50 barg' }
+            ],
+            level: [
+                 { id: 'measPrinciple', label: 'Measurement Principle', type: 'select', options: ['Differential Pressure (DP)', 'Guided Wave Radar (GWR)', 'Non-Contact Radar', 'Ultrasonic', 'Capacitance', 'Displacer', 'Magnetic', 'Other'] },
+                 { id: 'measRange', label: 'Measurement Range / Span', type: 'text', placeholder: 'e.g., 0 - 3000 mm' },
+                 { id: 'outputSignal', label: 'Output Signal', type: 'select', options: ['4-20mA HART', 'Foundation Fieldbus', 'Profibus PA'] },
+                 { id: 'procConn', label: 'Process Connection(s)', type: 'text', placeholder: 'e.g., 1-1/2" 150# RF SS316' },
+                 { id: 'wettedParts', label: 'Wetted Parts Material', type: 'text', placeholder: 'e.g., SS316L / PTFE' },
+                 { id: 'accuracy', label: 'Accuracy', type: 'text', placeholder: 'e.g., +/- 5 mm' },
+                 { id: 'powerSupply', label: 'Power Supply', type: 'text', placeholder: 'e.g., 24 VDC Loop Powered' },
+                 { id: 'hazCert', label: 'Hazardous Area Cert.', type: 'text', placeholder: 'e.g., ATEX Ex ia' },
+                 { id: 'mounting', label: 'Mounting', type: 'text', placeholder: 'e.g., Top / Side / Bridle' },
+                 { id: 'display', label: 'Integral Display', type: 'select', options: ['Yes', 'No'] },
+            ],
+             flow: [
+                 { id: 'measPrinciple', label: 'Measurement Principle', type: 'select', options: ['DP (Orifice)', 'DP (Venturi)', 'Magnetic', 'Coriolis', 'Ultrasonic', 'Turbine', 'Vortex', 'Thermal Mass', 'PD'] },
+                 { id: 'fluidType', label: 'Fluid Type', type: 'text', placeholder: 'e.g., Natural Gas' },
+                 { id: 'flowRange', label: 'Operating Flow Range', type: 'text', placeholder: 'e.g., 0-100 m3/hr' },
+                 { id: 'opTempPress', label: 'Operating Temp / Pressure', type: 'text', placeholder: 'e.g., 150 C / 10 barg' },
+                 { id: 'outputSignal', label: 'Output Signal', type: 'select', options: ['4-20mA HART', 'Pulse Output', 'FF', 'Profibus PA', 'Modbus'] },
+                 { id: 'lineSize', label: 'Line Size', type: 'text', placeholder: 'e.g., 4"' },
+                 { id: 'endConn', label: 'End Connections', type: 'text', placeholder: 'e.g., 300# RF Flanged' },
+                 { id: 'wettedParts', label: 'Wetted Parts Material', type: 'text', placeholder: 'e.g., SS316L' },
+                 { id: 'accuracy', label: 'Accuracy', type: 'text', placeholder: 'e.g., +/- 0.5% of Rate' },
+                 { id: 'powerSupply', label: 'Power Supply', type: 'text', placeholder: 'e.g., 24 VDC' },
+                 { id: 'hazCert', label: 'Hazardous Area Cert.', type: 'text', placeholder: 'e.g., ATEX Ex d' },
+                 { id: 'displayTotalizer', label: 'Integral Display / Totalizer', type: 'select', options: ['Yes', 'No', 'Display Only', 'Totalizer Only'] },
+                 { id: 'primaryElement', label: 'Primary Element Details (if DP)', type: 'text', placeholder: 'e.g., Orifice Plate SS316' }
+             ],
+            temperature: [
+                 { id: 'sensorType', label: 'Sensor Input Type', type: 'select', options: ['RTD Pt100', 'RTD Pt1000', 'TC Type K', 'TC Type J', 'TC Type T', 'TC Type E', 'Other'] },
+                 { id: 'numInputs', label: 'Number of Inputs', type: 'select', options: ['Single', 'Dual'] },
+                 { id: 'measRange', label: 'Measurement Range', type: 'text', placeholder: 'e.g., 0 - 250 C' },
+                 { id: 'outputSignal', label: 'Output Signal', type: 'select', options: ['4-20mA HART', 'Foundation Fieldbus', 'Profibus PA'] },
+                 { id: 'txType', label: 'Transmitter Type', type: 'select', options: ['Head-mounted', 'Field-mounted', 'Rail-mounted'] },
+                 { id: 'accuracy', label: 'Accuracy (Tx + Sensor)', type: 'text', placeholder: 'e.g., +/- 0.5 C' },
+                 { id: 'powerSupply', label: 'Power Supply', type: 'text', placeholder: 'e.g., 24 VDC Loop Powered' },
+                 { id: 'hazCert', label: 'Hazardous Area Cert.', type: 'text', placeholder: 'e.g., ATEX Ex ia' },
+                 { id: 'display', label: 'Integral Display', type: 'select', options: ['Yes', 'No'] },
+                 // Thermowell section (simplified)
+                 { id: 'twMaterial', label: 'Thermowell Material', type: 'text', placeholder: 'e.g., SS316' },
+                 { id: 'twProcConn', label: 'Thermowell Process Conn.', type: 'text', placeholder: 'e.g., 1" 300# RF' },
+                 { id: 'twInsertion', label: 'Thermowell Insertion (\'U\')', type: 'text', placeholder: 'e.g., 150 mm' },
+                 { id: 'twWake', label: 'Wake Freq. Calc. Required?', type: 'select', options: ['Yes', 'No'] }
+             ],
+            titleBlock: [
+                 { id: 'designedBy', label: 'Designed By', type: 'text', placeholder: 'Your Name / Initials' },
+                 { id: 'approvedBy', label: 'Approved By', type: 'text', placeholder: 'Approver Name / Initials' },
+                 { id: 'revisionStatus', label: 'Revision Status', type: 'select', options: ['Issued for Review', 'Issued for Approval', 'Issued for Construction', 'Issued for Procurement', 'As Built'] },
+                 { id: 'revisionNo', label: 'Revision No.', type: 'text', placeholder: 'e.g., 0, 1, A, B' },
+                 { id: 'date', label: 'Date', type: 'date' } // Use date input type
+            ]
+        };
+
+        // --- State Variable ---
+        let currentInstrumentType = null;
+        let currentFormData = {};
+
+        // --- Functions ---
+
+        // Generate HTML for a single form field
+        function createFieldHtml(field) {
+            let fieldHtml = `<div class="mb-4">`;
+            fieldHtml += `<label for="${field.id}" class="text-sm">${field.label}:</label>`;
+            if (field.type === 'select') {
+                fieldHtml += `<select id="${field.id}" name="${field.id}">`;
+                field.options.forEach(opt => {
+                    fieldHtml += `<option value="${opt}">${opt}</option>`;
+                });
+                fieldHtml += `</select>`;
+            } else if (field.type === 'date') {
+                 fieldHtml += `<input type="date" id="${field.id}" name="${field.id}">`;
+            }
+            else { // Default to text input
+                fieldHtml += `<input type="${field.type}" id="${field.id}" name="${field.id}" placeholder="${field.placeholder || ''}">`;
+            }
+            fieldHtml += `</div>`;
+            return fieldHtml;
+        }
+
+        // Generate the complete form for the selected instrument
+        function generateForm(instrumentType) {
+            currentInstrumentType = instrumentType;
+            dataInputForm.innerHTML = ''; // Clear previous form
+            let formHtml = '<form id="instrumentDataEntryForm">';
+
+            // Add General Fields
+            formHtml += '<h4 class="text-md font-semibold mb-2 border-b pb-1 text-gray-600">General Information</h4>';
+            instrumentFields.general.forEach(field => formHtml += createFieldHtml(field));
+
+            // Add Instrument Specific Fields
+            formHtml += `<h4 class="text-md font-semibold mt-4 mb-2 border-b pb-1 text-gray-600">${instrumentType.charAt(0).toUpperCase() + instrumentType.slice(1)} Specifics</h4>`;
+            if (instrumentFields[instrumentType]) {
+                instrumentFields[instrumentType].forEach(field => formHtml += createFieldHtml(field));
+            }
+
+             // Add Title Block Fields
+            formHtml += '<h4 class="text-md font-semibold mt-4 mb-2 border-b pb-1 text-gray-600">Revision & Approval</h4>';
+            instrumentFields.titleBlock.forEach(field => formHtml += createFieldHtml(field));
+
+
+            formHtml += '</form>';
+            dataInputForm.innerHTML = formHtml;
+            generateButtonContainer.style.display = 'block'; // Show generate button
+            datasheetOutputContainer.style.display = 'none'; // Hide output area when form changes
+        }
+
+        // Collect data from the current form
+        function collectFormData() {
+            currentFormData = {};
+            const form = document.getElementById('instrumentDataEntryForm');
+            if (!form) return;
+
+            const allFields = [
+                ...instrumentFields.general,
+                ...(instrumentFields[currentInstrumentType] || []),
+                ...instrumentFields.titleBlock
+            ];
+
+            allFields.forEach(field => {
+                const inputElement = form.elements[field.id];
+                if (inputElement) {
+                    currentFormData[field.id] = {
+                        label: field.label, // Store label for datasheet generation
+                        value: inputElement.value || '-' // Use '-' for empty fields
+                    };
+                }
+            });
+        }
+
+        // Generate the HTML for the datasheet output
+        function generateDatasheetHTML() {
+            if (!currentInstrumentType || Object.keys(currentFormData).length === 0) {
+                datasheetOutput.innerHTML = '<p class="text-red-600">No data entered or instrument selected.</p>';
+                return;
+            }
+
+            // --- Build Title Block ---
+            let titleBlockHtml = `
+                <table class="title-block border border-black">
+                    <tr>
+                        <td rowspan="3" class="logo-cell border-r border-black w-1/4">
+                            <img src="${outputLogo.src}" alt="Logo" class="h-12 mx-auto">
+                        </td>
+                        <td colspan="3" class="text-center font-bold text-lg border-b border-black">INSTRUMENT DATASHEET</td>
+                    </tr>
+                    <tr>
+                        <td class="font-semibold border-r border-b border-black">Tag No:</td>
+                        <td colspan="2" class="font-bold text-lg border-b border-black">${currentFormData['tagNo']?.value || 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <td class="font-semibold border-r border-b border-black">Service:</td>
+                        <td colspan="2" class="border-b border-black">${currentFormData['serviceDesc']?.value || ''}</td>
+                    </tr>
+                    <tr>
+                        <td class="border-r border-b border-black">Designed: ${currentFormData['designedBy']?.value || ''}</td>
+                        <td class="border-r border-b border-black">Approved: ${currentFormData['approvedBy']?.value || ''}</td>
+                        <td class="border-r border-b border-black">Date: ${currentFormData['date']?.value || ''}</td>
+                        <td class="border-b border-black">Rev: ${currentFormData['revisionNo']?.value || ''}</td>
+                    </tr>
+                     <tr>
+                        <td colspan="4" class="text-center font-semibold">${currentFormData['revisionStatus']?.value || ''}</td>
+                    </tr>
+                </table>`;
+
+            // --- Build Parameter Table ---
+            let paramsHtml = '<h4 class="text-md font-semibold mt-4 mb-2">Parameters:</h4><table>';
+            const allFields = [
+                ...instrumentFields.general,
+                ...(instrumentFields[currentInstrumentType] || []),
+                 // Exclude title block fields from the main parameter list
+            ];
+
+            allFields.forEach(field => {
+                // Check if the field exists in the collected data (it should)
+                 if (currentFormData[field.id]) {
+                     paramsHtml += `
+                        <tr>
+                            <td class="param-name">${field.label}</td>
+                            <td class="param-value">${currentFormData[field.id].value}</td>
+                        </tr>`;
+                 }
+            });
+            paramsHtml += '</table>';
+
+            // Combine and display
+            datasheetOutput.innerHTML = titleBlockHtml + paramsHtml;
+            datasheetOutputContainer.style.display = 'block'; // Show the output
+        }
+
+
+        // --- Event Listeners ---
+        instrumentSelector.addEventListener('click', (event) => {
+            if (event.target.classList.contains('instrument-button')) {
+                const selectedInstrument = event.target.dataset.instrument;
+                // Update button styles
+                document.querySelectorAll('.instrument-button').forEach(button => {
+                    button.classList.remove('selected');
+                });
+                event.target.classList.add('selected');
+                // Generate the form
+                generateForm(selectedInstrument);
+            }
+        });
+
+        generateButton.addEventListener('click', () => {
+            collectFormData();
+            generateDatasheetHTML();
+             // Scroll to the output section smoothly
+            datasheetOutputContainer.scrollIntoView({ behavior: 'smooth' });
+        });
+
+        // --- Initial Setup ---
+        document.addEventListener('DOMContentLoaded', () => {
+            currentYearSpan.textContent = new Date().getFullYear();
+        });
+
+    </script>
+
+</body>
+</html>
